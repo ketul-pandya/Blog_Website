@@ -226,6 +226,47 @@ app.get('/post/:id', async (req, res) => {
     res.json(postDoc)
 })
 
+// Add this route handler for deleting a blog post
+app.delete('/post/:id', async (req, res) => {
+    const { id } = req.params;
+    const { token } = req.cookies;
+
+    try {
+        // Verify the token and get the user information (including the author ID)
+        jwt.verify(token, secret, {}, async (err, info) => {
+            if (err) {
+                return res.status(401).json('Unauthorized');
+            }
+
+            // Find the post by its ID
+            const postDoc = await Post.findById(id);
+
+            // Check if the post exists
+            if (!postDoc) {
+                return res.status(404).json('Blog post not found');
+            }
+
+            // Check if the user making the request is the author of the blog post
+            const isAuthor = JSON.stringify(postDoc.author) === JSON.stringify(info.id);
+
+            if (!isAuthor) {
+                return res.status(403).json('You are not the author');
+            }
+
+            // If the user is the author, delete the blog post
+            await Post.deleteOne({ _id: id });
+
+            // Optionally, you can delete the associated cover image file from the server
+            if (postDoc.cover) {
+                fs.unlinkSync(postDoc.cover);
+            }
+
+            res.json('Blog post deleted successfully');
+        });
+    } catch (error) {
+        res.status(400).json('Error deleting blog post');
+    }
+});
 
 
 app.listen(5000, () => {
